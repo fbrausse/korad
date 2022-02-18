@@ -1,0 +1,21 @@
+Command-line tool talking to Korad KD3005P programmable DC power supplies.
+
+usage: korad [-OPTS]
+
+Options [defaults]:
+  -f         force usage of device even if the version does not match
+  -s         print status
+  -v         print version information
+  -h         print this help message
+  -D DEV     use device path DEV [/dev/ttyACM0]
+  -I x.xxx   set maximum output current in Ampere
+  -U xx.xx   set maximum output voltage in Volt
+  -o {0|1}   turn output off or on
+  -O {0|1}   turn over-current protection off or on
+  -S {1-5}   store current U/I settings in memory slot
+  -R {1-5}   restore U/I settings from memory slot
+
+Environment variables:
+  KORAD_DEV  default device to use unless -D is specified
+
+Written by Franz Brauße <fb@paxle.org>
