@@ -83,9 +83,9 @@ int main(int argc, char **argv)
 
 	const char *iset = NULL, *uset = NULL, *out = NULL, *ocp = NULL;
 	const char *save = NULL, *rest = NULL;
-	int print_status = 0, print_version = 0;
+	int print_status = 0, print_version = 0, force = 0;
 
-	for (int opt; (opt = getopt(argc, argv, ":D:hsI:U:S:R:o:O:v")) != -1;)
+	for (int opt; (opt = getopt(argc, argv, ":fD:hsI:U:S:R:o:O:v")) != -1;)
 		switch (opt) {
 		case 'D': dev = optarg; break;
 		case 'I': iset = optarg; break;
@@ -96,11 +96,13 @@ int main(int argc, char **argv)
 		case 'R': rest = optarg; break;
 		case 's': print_status = 1; break;
 		case 'v': print_version = 1; break;
+		case 'f': force = 1; break;
 		case 'h':
 			printf("\
 usage: %s [-OPTS]\n\
 \n\
 Options [defaults]:\n\
+  -f        force usage of device even if the version does not match\n\
   -s        print status\n\
   -v        print version information\n\
   -h        print this help message\n\
@@ -139,8 +141,8 @@ Written by Franz Brauße <fb@paxle.org>\n\
 	toks[1] = strtok(NULL, " ");
 	toks[2] = strtok(NULL, " ");
 	toks[3] = strtok(NULL, " ");
-	if (strcmp(toks[0], "KORAD") || strcmp(toks[1], "KD3005P") ||
-	    strcmp(toks[2], "V6.6") || strncmp(toks[3], "SN:", 3))
+	if (!force && (strcmp(toks[0], "KORAD") || strcmp(toks[1], "KD3005P") ||
+	               strcmp(toks[2], "V6.6") || strncmp(toks[3], "SN:", 3)))
 		DIE(1,"error: device identified as '%s'. Unknown, aborting.\n",
 		    id);
 	free(id);
