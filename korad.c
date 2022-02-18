@@ -79,7 +79,7 @@ static char * recv(const char *fmt)
 
 int main(int argc, char **argv)
 {
-	const char *dev = "/dev/ttyACM0";
+	const char *dev = getenv("KORAD_DEV") ? : "/dev/ttyACM0";
 
 	const char *iset = NULL, *uset = NULL, *out = NULL, *ocp = NULL;
 	const char *save = NULL, *rest = NULL;
@@ -102,17 +102,20 @@ int main(int argc, char **argv)
 usage: %s [-OPTS]\n\
 \n\
 Options [defaults]:\n\
-  -f        force usage of device even if the version does not match\n\
-  -s        print status\n\
-  -v        print version information\n\
-  -h        print this help message\n\
-  -D DEV    use device path DEV [%s]\n\
-  -I x.xxx  set maximum output current in Ampere\n\
-  -U xx.xx  set maximum output voltage in Volt\n\
-  -o {0|1}  turn output off or on\n\
-  -O {0|1}  turn over-current protection off or on\n\
-  -S {1-5}  store current U/I settings in memory slot\n\
-  -R {1-5}  restore U/I settings from memory slot\n\
+  -f         force usage of device even if the version does not match\n\
+  -s         print status\n\
+  -v         print version information\n\
+  -h         print this help message\n\
+  -D DEV     use device path DEV [%s]\n\
+  -I x.xxx   set maximum output current in Ampere\n\
+  -U xx.xx   set maximum output voltage in Volt\n\
+  -o {0|1}   turn output off or on\n\
+  -O {0|1}   turn over-current protection off or on\n\
+  -S {1-5}   store current U/I settings in memory slot\n\
+  -R {1-5}   restore U/I settings from memory slot\n\
+\n\
+Environment variables:\n\
+  KORAD_DEV  default device to use unless -D is specified\n\
 \n\
 Written by Franz Brauße <fb@paxle.org>\n\
 ", argv[0], dev);
