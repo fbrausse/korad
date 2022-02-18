@@ -70,6 +70,13 @@ static char * recv(const char *fmt)
 #define _comm(fmt, ...) (send(0, fmt, __VA_ARGS__), recv(fmt))
 #define comm(...) _comm(__VA_ARGS__, 0)
 
+#define CSI	"\x1b["
+#define RED	CSI "91m"
+#define GREEN	CSI "92m"
+#define MAGENTA	CSI "95m"
+#define CYAN	CSI "96m"
+#define RESET	CSI "0m"
+
 int main(int argc, char **argv)
 {
 	const char *dev = "/dev/ttyACM0";
@@ -116,10 +123,8 @@ Written by Franz Brauße <fb@paxle.org>\n\
 		}
 
 	int fd = open(dev, O_RDWR | O_NOCTTY);
-	if (fd == -1) {
-		perror(dev);
-		return 1;
-	}
+	if (fd == -1)
+		perror(dev), exit(1);
 
 	f = fdopen(fd, "a+");
 	if (!f)
@@ -154,19 +159,33 @@ Written by Franz Brauße <fb@paxle.org>\n\
 		send(50e6, "RCL%s", rest);
 
 	if (print_status) {
+		const char *on, *off, *ufmt = "", *ifmt = "", *reset = "";
+		if (isatty(STDOUT_FILENO)) {
+			on    = GREEN   "on"  RESET;
+			off   = RED     "off" RESET;
+			ufmt  = MAGENTA;
+			ifmt  = CYAN;
+			reset = RESET;
+		} else {
+			on    =         "on";
+			off   =         "off";
+		}
+
 		unsigned char status = *comm("STATUS?");
 		int cv_mode     =  status & 0x01; /* otherwise: cc mode */
-		int out_enabled =  status & 0x40;
 		int ocp_enabled =  status & 0x20; /* undocumented */
-		printf("constant %s mode, ocp %s, output %s (0x%02hhx)",
+		int out_enabled =  status & 0x40;
+		printf("constant %s%s%s mode, ocp %s, output %s (0x%02hhx)",
+		       cv_mode ? ufmt : ifmt,
 		       cv_mode ? "voltage" : "current",
-		       ocp_enabled ? "on" : "off",
-		       out_enabled ? "on" : "off",
+		       reset,
+		       ocp_enabled ? on : off,
+		       out_enabled ? on : off,
 		       status);
-		printf(", set to %sV", comm("VSET1?"));
-		printf(" / %sA", comm("ISET1?"));
-		printf(", actual output: %sV", comm("VOUT1?"));
-		printf(" / %sA", comm("IOUT1?"));
+		printf(", set to %s%s%sV", ufmt, comm("VSET1?"), reset);
+		printf(" / %s%s%sA", ifmt, comm("ISET1?"), reset);
+		printf(", actual output: %s%s%sV", ufmt, comm("VOUT1?"), reset);
+		printf(" / %s%s%sA", ifmt, comm("IOUT1?"), reset);
 		printf("\n");
 	}
 }
