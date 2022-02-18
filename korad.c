@@ -24,22 +24,41 @@ static char *line;
 static size_t sz;
 static ssize_t rd;
 
+static void * kmalloc(size_t n)
+{
+	return n ? malloc(n) : NULL;
+}
+
+static void kfree(void *ptr)
+{
+	if (ptr)
+		free(ptr);
+}
+
 static void * krealloc(void *ptr, size_t sz)
 {
 	if (!sz) {
-		free(ptr);
+		kfree(ptr);
 		return NULL;
 	}
 	return realloc(ptr, sz);
 }
 
-static char * comm(const char *fmt, ...)
+static void send(long wait_ns, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
 	vfprintf(f, fmt, ap);
 	va_end(ap);
 	putc('\n', f);
+	for (struct timespec rem = { 0, wait_ns };
+	     (errno = 0, nanosleep(&rem, &rem) == -1) && errno == EINTR;);
+	if (errno)
+		perror("nanosleep"), exit(2);
+}
+
+static char * recv(const char *fmt)
+{
 	rd = getline(&line, &sz, f);
 	if (rd <= 0)
 		DIE(2,"error reading %s output\n",fmt);
@@ -48,20 +67,26 @@ static char * comm(const char *fmt, ...)
 	return line;
 }
 
+#define _comm(fmt, ...) (send(0, fmt, __VA_ARGS__), recv(fmt))
+#define comm(...) _comm(__VA_ARGS__, 0)
+
 int main(int argc, char **argv)
 {
 	const char *dev = "/dev/ttyACM0";
 
 	const char *iset = NULL, *uset = NULL, *out = NULL, *ocp = NULL;
+	const char *save = NULL, *rest = NULL;
 	int print_status = 0, print_version = 0;
 
-	for (int opt; (opt = getopt(argc, argv, ":D:hsI:U:o:O:v")) != -1;)
+	for (int opt; (opt = getopt(argc, argv, ":D:hsI:U:S:R:o:O:v")) != -1;)
 		switch (opt) {
 		case 'D': dev = optarg; break;
 		case 'I': iset = optarg; break;
 		case 'U': uset = optarg; break;
 		case 'o': out = optarg; break;
 		case 'O': ocp = optarg; break;
+		case 'S': save = optarg; break;
+		case 'R': rest = optarg; break;
 		case 's': print_status = 1; break;
 		case 'v': print_version = 1; break;
 		case 'h':
@@ -77,6 +102,8 @@ Options [defaults]:\n\
   -U xx.xx  set maximum output voltage in Volt\n\
   -o {0|1}  turn output off or on\n\
   -O {0|1}  turn over-current protection off or on\n\
+  -S {1-5}  store current U/I settings in memory slot\n\
+  -R {1-5}  restore U/I settings from memory slot\n\
 \n\
 Written by Franz Brauße <fb@paxle.org>\n\
 ", argv[0], dev);
@@ -113,27 +140,28 @@ Written by Franz Brauße <fb@paxle.org>\n\
 		    id);
 	free(id);
 
-	if (iset) {
-		fprintf(f, "ISET1:%s\n", iset);
-		for (struct timespec rem = { 0, 50e6 };
-		     (errno = 0, nanosleep(&rem, &rem) == -1) && errno == EINTR;);
-		if (errno)
-			perror("nanosleep"), exit(2);
-	}
+	if (iset)
+		send(50e6, "ISET1:%s", iset);
 	if (uset)
-		fprintf(f, "VSET1:%s\n", uset);
+		send(50e6, "VSET1:%s", uset);
 	if (out)
-		fprintf(f, "OUT%s\n", out);
+		send(50e6, "OUT%s", out);
 	if (ocp)
-		fprintf(f, "OCP%s\n", ocp);
+		send(50e6, "OCP%s", ocp);
+	if (save)
+		send(50e6, "SAV%s", save);
+	if (rest)
+		send(50e6, "RCL%s", rest);
 
 	if (print_status) {
 		unsigned char status = *comm("STATUS?");
-		int cv_mode     = status & 0x01; /* otherwise: cc mode */
-		int out_enabled = status & 0x40;
-		printf("constant %s mode, output %s (0x%02hhx)",
+		int cv_mode     =  status & 0x01; /* otherwise: cc mode */
+		int out_enabled =  status & 0x40;
+		int ocp_enabled =  status & 0x20; /* undocumented */
+		printf("constant %s mode, ocp %s, output %s (0x%02hhx)",
 		       cv_mode ? "voltage" : "current",
-		       out_enabled ? "enabled" : "disabled",
+		       ocp_enabled ? "on" : "off",
+		       out_enabled ? "on" : "off",
 		       status);
 		printf(", set to %sV", comm("VSET1?"));
 		printf(" / %sA", comm("ISET1?"));
